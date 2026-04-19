@@ -198,16 +198,13 @@ async function directFetch(url: string): Promise<Response> {
   return response;
 }
 
-async function scraperApiFetch(url: string): Promise<Response> {
+async function scraperApiFetch(url: string, render: boolean): Promise<Response> {
   const apiKey = process.env.SCRAPER_API_KEY;
   if (!apiKey) {
     throw new Error("Missing SCRAPER_API_KEY");
   }
 
-  // render=true tells ScraperAPI to execute JavaScript, which is needed for
-  // sites like Serious Eats that load content dynamically.
-  // timeout=20000 tells ScraperAPI to give up after 20s on their side.
-  const scraperUrl = `https://api.scraperapi.com?api_key=${encodeURIComponent(apiKey)}&url=${encodeURIComponent(url)}&render=true&timeout=20000`;
+  const scraperUrl = `https://api.scraperapi.com?api_key=${encodeURIComponent(apiKey)}&url=${encodeURIComponent(url)}${render ? "&render=true" : ""}&timeout=20000`;
 
   const controller = new AbortController();
   // 45s total to allow ScraperAPI time to render + respond
@@ -252,9 +249,44 @@ async function fetchWithFallback(url: string): Promise<FetchResult> {
     // Other network errors — also try ScraperAPI
   }
 
-  // Step 2: Retry through ScraperAPI (handles Cloudflare, bot protection)
+  // Step 2: Retry through ScraperAPI without JS rendering — fast path, works for
+  // server-rendered sites like AllRecipes.
   try {
-    const response = await scraperApiFetch(url);
+    const response = await scraperApiFetch(url, false);
+
+    if (response.ok) {
+      return { ok: true, html: await response.text() };
+    }
+
+    if (response.status === 404) {
+      return { ok: false, error: "Page not found. Please check the URL and try again.", status: 422 };
+    }
+
+    if (response.status === 403) {
+      // Site blocks even ScraperAPI — fall through to JS rendering
+    } else if (response.status < 500) {
+      return {
+        ok: false,
+        error: `The recipe site returned an error (HTTP ${response.status}).`,
+        status: 422,
+      };
+    }
+    // 5xx or 403 — fall through to render=true attempt
+  } catch (err) {
+    if (!(err instanceof DOMException && err.name === "AbortError")) {
+      return {
+        ok: false,
+        error: "Could not reach the recipe site. Please check the URL and try again.",
+        status: 422,
+      };
+    }
+    // Timeout — fall through to render=true
+  }
+
+  // Step 3: Retry through ScraperAPI with JS rendering (handles Cloudflare, heavy bot
+  // protection, and sites that load content dynamically like Serious Eats).
+  try {
+    const response = await scraperApiFetch(url, true);
 
     if (response.ok) {
       return { ok: true, html: await response.text() };
