@@ -1,26 +1,161 @@
 @import "tailwindcss";
 
+/* Design tokens */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --black: #1A1A1A;
+  --white: #FFFFFF;
+  --cream: #DCDED6;
+  --gray-border: #D4D4D4;
+  --inline-bg: #F0F0EC;
+
+  --font-display: 'Tagesschrift', Georgia, serif;
+  --font-body: 'Satoshi', system-ui, sans-serif;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-body);
+  --font-serif: var(--font-display);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Base styles */
+body {
+  font-family: var(--font-body);
+  color: var(--black);
+  background: var(--white);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tighten tracking on all Spectral (display/serif) text globally.
+   Uses the font-family value directly so it applies everywhere Spectral is used. */
+:is(h1, h2, h3, h4, h5, h6) {
+  letter-spacing: -0.02em;
+}
+
+.font-spectral {
+  letter-spacing: -0.02em;
+}
+
+/* Print styles — only the recipe card prints, matching desktop layout */
+@media print {
+  @page {
+    margin: 0.5in;
+    size: letter;
+  }
+
+  body {
+    background: white !important;
+    color: black;
+    font-size: 11px;
+  }
+
+  /* Hide everything that isn't the recipe */
+  .no-print,
+  header,
+  footer,
+  nav {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* The cream wrapper that holds the card */
+  .recipe-result-wrap {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Recipe card — match desktop two-column layout */
+  .recipe-card {
+    padding: 0 !important;
+    background: white !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .recipe-header {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 24px !important;
+    break-inside: avoid;
+  }
+
+  .recipe-card img {
+    object-fit: cover !important;
+  }
+
+  .recipe-card-body {
+    grid-template-columns: 2fr 3fr !important;
+    gap: 40px !important;
+    margin-top: 28px !important;
+    padding-top: 24px !important;
+  }
+
+  .recipe-card-body > * {
+    break-inside: avoid;
+  }
+
+  .recipe-ingredients,
+  .recipe-method {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Inline quantity tags — bold text, no background on paper */
+  .inline-qty {
+    background: none !important;
+    padding: 0 !important;
+    font-weight: 600 !important;
+  }
+
+  /* Compact spacing to fit on one page */
+  .recipe-card h2 {
+    font-size: 26px !important;
+  }
+
+  .recipe-card h3 {
+    font-size: 16px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .ingredient-item {
+    font-size: 15px !important;
+    padding: 2px 0 !important;
+    line-height: 1.4 !important;
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .recipe-method li {
+    margin-bottom: 10px !important;
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .recipe-method li span {
+    font-size: 14px !important;
+    line-height: 1.4 !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .recipe-appear {
+    transform: none !important;
+  }
 }
