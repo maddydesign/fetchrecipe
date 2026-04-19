@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import Link from "next/link";
 import "./globals.css";
 
@@ -86,6 +87,19 @@ export default function RootLayout({
             </ul>
           </nav>
         </header>
+
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-JKJ4BFGZ4L"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-JKJ4BFGZ4L');
+          `}
+        </Script>
 
         {/* Page content */}
         <main className="flex-1">{children}</main>
