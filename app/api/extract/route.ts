@@ -172,7 +172,7 @@ function getSuggestion(failedUrl: string): SimilarRecipeSuggestion {
   return candidates[Math.floor(Math.random() * candidates.length)] ?? KNOWN_RECIPES[0];
 }
 
-// ---------- HTML fetching with ScraperAPI fallback ----------
+// ---------- HTML/content fetching with multiple fallbacks ----------
 
 type FetchResult =
   | { ok: true; html: string }
@@ -192,6 +192,19 @@ async function directFetch(url: string): Promise<Response> {
         "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.9",
     },
+  });
+
+  clearTimeout(timeout);
+  return response;
+}
+
+async function jinaFetch(url: string): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+
+  const response = await fetch(`https://r.jina.ai/${url}`, {
+    signal: controller.signal,
+    headers: { Accept: "text/plain" },
   });
 
   clearTimeout(timeout);
@@ -261,8 +274,6 @@ async function fetchWithFallback(url: string): Promise<FetchResult> {
       return { ok: false, error: "Page not found. Please check the URL and try again.", status: 422 };
     }
 
-    // 402 means ScraperAPI requires residential proxies for this domain from
-    // datacenter IPs (e.g. Vercel). 403/5xx — also fall through to residential.
     if (response.status !== 402 && response.status !== 403 && response.status < 500) {
       return {
         ok: false,
@@ -270,6 +281,7 @@ async function fetchWithFallback(url: string): Promise<FetchResult> {
         status: 422,
       };
     }
+    // 402/403/5xx — fall through to Jina
   } catch (err) {
     if (!(err instanceof DOMException && err.name === "AbortError")) {
       return {
@@ -280,8 +292,21 @@ async function fetchWithFallback(url: string): Promise<FetchResult> {
     }
   }
 
-  // Step 3: ScraperAPI with residential proxies — bypasses bot protection on sites
-  // like AllRecipes that block datacenter IPs even through standard ScraperAPI.
+  // Step 3: Jina AI reader — free service that bypasses bot protection on sites
+  // like AllRecipes where ScraperAPI returns 402 from datacenter IPs. Returns
+  // clean markdown text rather than HTML, which the AI handles fine.
+  try {
+    const response = await jinaFetch(url);
+
+    if (response.ok) {
+      return { ok: true, html: await response.text() };
+    }
+    // Any non-200 from Jina — fall through to ScraperAPI residential
+  } catch (err) {
+    // Timeout or network error — fall through
+  }
+
+  // Step 4: ScraperAPI with residential proxies.
   try {
     const response = await scraperApiFetch(url, false, true);
 
@@ -311,7 +336,7 @@ async function fetchWithFallback(url: string): Promise<FetchResult> {
     }
   }
 
-  // Step 4: ScraperAPI with JS rendering (handles Cloudflare, heavy bot
+  // Step 5: ScraperAPI with JS rendering (handles Cloudflare, heavy bot
   // protection, and sites that load content dynamically like Serious Eats).
   try {
     const response = await scraperApiFetch(url, true);
