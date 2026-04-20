@@ -198,13 +198,13 @@ async function directFetch(url: string): Promise<Response> {
   return response;
 }
 
-async function scraperApiFetch(url: string, render: boolean): Promise<Response> {
+async function scraperApiFetch(url: string, render: boolean, residential = false): Promise<Response> {
   const apiKey = process.env.SCRAPER_API_KEY;
   if (!apiKey) {
     throw new Error("Missing SCRAPER_API_KEY");
   }
 
-  const scraperUrl = `https://api.scraperapi.com?api_key=${encodeURIComponent(apiKey)}&url=${encodeURIComponent(url)}${render ? "&render=true" : ""}&timeout=20000`;
+  const scraperUrl = `https://api.scraperapi.com?api_key=${encodeURIComponent(apiKey)}&url=${encodeURIComponent(url)}${render ? "&render=true" : ""}${residential ? "&residential=true" : ""}&timeout=20000`;
 
   const controller = new AbortController();
   // 45s total to allow ScraperAPI time to render + respond
@@ -249,8 +249,7 @@ async function fetchWithFallback(url: string): Promise<FetchResult> {
     // Other network errors — also try ScraperAPI
   }
 
-  // Step 2: Retry through ScraperAPI without JS rendering — fast path, works for
-  // server-rendered sites like AllRecipes.
+  // Step 2: ScraperAPI without JS rendering — fast path for server-rendered sites.
   try {
     const response = await scraperApiFetch(url, false);
 
@@ -262,16 +261,15 @@ async function fetchWithFallback(url: string): Promise<FetchResult> {
       return { ok: false, error: "Page not found. Please check the URL and try again.", status: 422 };
     }
 
-    if (response.status === 403) {
-      // Site blocks even ScraperAPI — fall through to JS rendering
-    } else if (response.status < 500) {
+    // 402 means ScraperAPI requires residential proxies for this domain from
+    // datacenter IPs (e.g. Vercel). 403/5xx — also fall through to residential.
+    if (response.status !== 402 && response.status !== 403 && response.status < 500) {
       return {
         ok: false,
         error: `The recipe site returned an error (HTTP ${response.status}).`,
         status: 422,
       };
     }
-    // 5xx or 403 — fall through to render=true attempt
   } catch (err) {
     if (!(err instanceof DOMException && err.name === "AbortError")) {
       return {
@@ -280,10 +278,40 @@ async function fetchWithFallback(url: string): Promise<FetchResult> {
         status: 422,
       };
     }
-    // Timeout — fall through to render=true
   }
 
-  // Step 3: Retry through ScraperAPI with JS rendering (handles Cloudflare, heavy bot
+  // Step 3: ScraperAPI with residential proxies — bypasses bot protection on sites
+  // like AllRecipes that block datacenter IPs even through standard ScraperAPI.
+  try {
+    const response = await scraperApiFetch(url, false, true);
+
+    if (response.ok) {
+      return { ok: true, html: await response.text() };
+    }
+
+    if (response.status === 404) {
+      return { ok: false, error: "Page not found. Please check the URL and try again.", status: 422 };
+    }
+
+    if (response.status !== 403 && response.status < 500) {
+      return {
+        ok: false,
+        error: `The recipe site returned an error (HTTP ${response.status}).`,
+        status: 422,
+      };
+    }
+    // 403/5xx — fall through to render=true
+  } catch (err) {
+    if (!(err instanceof DOMException && err.name === "AbortError")) {
+      return {
+        ok: false,
+        error: "Could not reach the recipe site. Please check the URL and try again.",
+        status: 422,
+      };
+    }
+  }
+
+  // Step 4: ScraperAPI with JS rendering (handles Cloudflare, heavy bot
   // protection, and sites that load content dynamically like Serious Eats).
   try {
     const response = await scraperApiFetch(url, true);
