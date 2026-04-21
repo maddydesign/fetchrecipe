@@ -50,7 +50,7 @@ export default function FreeRecipePrinterPage() {
             margin: "24px auto 0",
           }}
         >
-          Paste any recipe URL and print a clean, ad-free recipe card — free,
+          Paste a recipe URL and print a clean, ad-free recipe card for free,
           no account needed, no paywall. Other tools charge for printing. We
           don&apos;t.
         </p>
@@ -94,7 +94,7 @@ export default function FreeRecipePrinterPage() {
         >
           What you get
         </p>
-        {["No ads.", "No life story.", "No paywall. Just the recipe, ready to print."].map(
+        {["No ads. No life story. No paywall. Just the recipe, ready to print."].map(
           (line) => (
             <p
               key={line}
