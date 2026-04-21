@@ -96,7 +96,7 @@ The JSON must match this exact structure:
       "ingredientRefs": [0, 2]
     }
   ],
-  "sourceSite": "string (the site name, e.g. 'AllRecipes')"
+  "sourceSite": "string (the site name, e.g. 'Food Network')"
 }
 
 Rules:
@@ -118,12 +118,6 @@ export const maxDuration = 60;
 // ---------- Similar recipe suggestions (shown on failure) ----------
 
 const KNOWN_RECIPES: SimilarRecipeSuggestion[] = [
-  {
-    url: "https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/",
-    title: "Best Chocolate Chip Cookies",
-    image: "https://www.allrecipes.com/thmb/JDfMI0VJaKbSKOiKbFm2bY7OBpI=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/10813-best-chocolate-chip-cookies-Chef-John-1x1-1-b3d0426a8a25451d94c8fb9e107a29dc.jpg",
-    sourceSite: "AllRecipes",
-  },
   {
     url: "https://www.budgetbytes.com/chili/",
     title: "One Pot Chili Mac",

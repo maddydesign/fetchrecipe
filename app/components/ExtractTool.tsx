@@ -176,7 +176,7 @@ export default function ExtractTool({
             textAlign: "center",
           }}
         >
-          {subtitle ?? "Works with AllRecipes, Food Network, Bon Appetit, and hundreds more"}
+          {subtitle ?? "Works with Food Network, Bon Appetit, Simply Recipes, and hundreds more"}
         </p>
 
         {/* Error state */}

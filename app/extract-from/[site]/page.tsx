@@ -15,8 +15,6 @@ type Props = {
 };
 
 const metaDescriptions: Record<string, string> = {
-  allrecipes:
-    "Paste any AllRecipes URL and instantly get just the ingredients and instructions. No ads, no life stories. Free.",
   "food-network":
     "Extract clean recipes from Food Network. Paste a URL and get the ingredients and steps without the clutter.",
   "simply-recipes":

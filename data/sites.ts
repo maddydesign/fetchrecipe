@@ -7,13 +7,6 @@ export interface Site {
 
 export const sites: Site[] = [
   {
-    name: "AllRecipes",
-    slug: "allrecipes",
-    domain: "allrecipes.com",
-    description:
-      "AllRecipes is one of the largest recipe communities on the web, with thousands of user-submitted recipes and reviews covering everything from weeknight dinners to holiday baking.",
-  },
-  {
     name: "Food Network",
     slug: "food-network",
     domain: "foodnetwork.com",
