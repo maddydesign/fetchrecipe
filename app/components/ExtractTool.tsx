@@ -165,19 +165,21 @@ export default function ExtractTool({
           </div>
         </form>
 
-        <p
-          style={{
-            fontFamily: "var(--font-body)",
-            fontSize: "13px",
-            fontWeight: 400,
-            color: "var(--black)",
-            letterSpacing: "0.02em",
-            marginTop: "12px",
-            textAlign: "center",
-          }}
-        >
-          {subtitle ?? "Works with Food Network, Bon Appetit, King Arthur Baking, and hundreds more"}
-        </p>
+        {subtitle && (
+          <p
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: "13px",
+              fontWeight: 400,
+              color: "var(--black)",
+              letterSpacing: "0.02em",
+              marginTop: "12px",
+              textAlign: "center",
+            }}
+          >
+            {subtitle}
+          </p>
+        )}
 
         {/* Error state */}
         {error && !loading && (
