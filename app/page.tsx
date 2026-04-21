@@ -81,7 +81,7 @@ export default function HomePage() {
             margin: "24px auto 0",
           }}
         >
-          Paste any recipe URL and instantly get just the ingredients and
+          Paste a recipe URL and instantly get just the ingredients and
           instructions. No ads, no life stories.
         </p>
       </section>
@@ -182,12 +182,7 @@ export default function HomePage() {
             color: "var(--black)",
           }}
         >
-          FetchRecipe extracts clean, structured recipes from any cooking
-          website. It works with Food Network, Bon Appetit, King
-          Arthur Baking, Budget Bytes, BBC Good Food, Taste
-          of Home, Love and Lemons, RecipeTin Eats, Half Baked Harvest,
-          Skinnytaste, and hundreds of other recipe blogs. Every extracted
-          recipe includes separated ingredients, step-by-step instructions,
+          FetchRecipe extracts clean, structured recipes from recipe blogs from Pinterest and across the web. Every extracted recipe includes separated ingredients, step-by-step instructions,
           prep and cook times, and a print-ready layout.
         </p>
       </section>
