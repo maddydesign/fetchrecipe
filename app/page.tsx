@@ -130,7 +130,7 @@ export default function HomePage() {
               desc: "Clean recipe cards formatted for your printer. Just the essentials.",
             },
             {
-              title: "Any site",
+              title: "Hundreds of sites",
               desc: "Food Network, Bon Appetit, Budget Bytes, and hundreds of other recipe blogs.",
             },
           ].map((feature) => (
