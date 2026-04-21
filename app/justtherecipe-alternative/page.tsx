@@ -58,10 +58,9 @@ export default function JustTheRecipeAlternativePage() {
             margin: "24px auto 0",
           }}
         >
-          JustTheRecipe is a good tool — it strips away the clutter and gets
-          you the recipe. But it charges for printing and limits free usage.
-          FetchRecipe does everything JustTheRecipe does, and keeps printing
-          free, always. No subscription, no credit card, no account required.
+          JustTheRecipe is a good tool — but it charges for printing.
+          FetchRecipe keeps printing
+          free, always. No subscription, no credit card, no account required to print.
         </p>
       </section>
 
@@ -192,7 +191,7 @@ export default function JustTheRecipeAlternativePage() {
             marginTop: "24px",
           }}
         >
-          No credit card. No account required to print.
+          No credit card and no account required to print.
         </p>
       </section>
 
