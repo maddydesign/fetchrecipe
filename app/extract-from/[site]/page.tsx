@@ -17,8 +17,6 @@ type Props = {
 const metaDescriptions: Record<string, string> = {
   "food-network":
     "Extract clean recipes from Food Network. Paste a URL and get the ingredients and steps without the clutter.",
-  "simply-recipes":
-    "Pull recipes from Simply Recipes without the scrolling. Paste a link, get the ingredients and instructions instantly.",
   "bon-appetit":
     "Get just the recipe from Bon Appetit. Paste any URL and instantly extract ingredients and instructions. No ads.",
   "king-arthur-baking":

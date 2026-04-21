@@ -131,7 +131,7 @@ export default function HomePage() {
             },
             {
               title: "Any site",
-              desc: "Food Network, Bon Appetit, Simply Recipes, and hundreds of other recipe blogs.",
+              desc: "Food Network, Bon Appetit, Budget Bytes, and hundreds of other recipe blogs.",
             },
           ].map((feature) => (
             <div key={feature.title}>
@@ -184,7 +184,7 @@ export default function HomePage() {
         >
           FetchRecipe extracts clean, structured recipes from any cooking
           website. It works with Food Network, Bon Appetit, King
-          Arthur Baking, Budget Bytes, BBC Good Food, Simply Recipes, Taste
+          Arthur Baking, Budget Bytes, BBC Good Food, Taste
           of Home, Love and Lemons, RecipeTin Eats, Half Baked Harvest,
           Skinnytaste, and hundreds of other recipe blogs. Every extracted
           recipe includes separated ingredients, step-by-step instructions,

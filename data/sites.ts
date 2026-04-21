@@ -14,13 +14,6 @@ export const sites: Site[] = [
       "Food Network features recipes from celebrity chefs like Ina Garten, Bobby Flay, and Guy Fieri, along with cooking shows and step-by-step tutorials for home cooks.",
   },
   {
-    name: "Simply Recipes",
-    slug: "simply-recipes",
-    domain: "simplyrecipes.com",
-    description:
-      "Simply Recipes has been publishing reliable, well-tested recipes since 2003, focusing on approachable home cooking with clear instructions and seasonal ingredients.",
-  },
-  {
     name: "Bon Appetit",
     slug: "bon-appetit",
     domain: "bonappetit.com",
