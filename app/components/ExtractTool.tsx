@@ -71,7 +71,7 @@ export default function ExtractTool({
             });
           }, 100);
         } else {
-          setError("Sorry, we couldn't read the recipe on that page. Please paste another URL.");
+          setError(data.error ?? "Sorry, we couldn't read the recipe on that page. Please paste another URL.");
         }
       } catch {
         setError("Something went wrong. Please try again.");

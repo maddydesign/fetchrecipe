@@ -566,6 +566,30 @@ export async function POST(request: Request) {
     );
   }
 
+  // --- Blocklist: sites that reliably block automated access ---
+  const BLOCKED_DOMAINS = new Set([
+    "allrecipes.com",
+    "simplyrecipes.com",
+    "food52.com",
+    "seriouseats.com",
+    "thespruceeats.com",
+    "myrecipes.com",
+    "foodandwine.com",
+    "eatingwell.com",
+  ]);
+
+  const hostname = parsedUrl.hostname.replace(/^www\./, "");
+  if (BLOCKED_DOMAINS.has(hostname)) {
+    return Response.json(
+      {
+        success: false,
+        error: `${parsedUrl.hostname} blocks automated access to their pages and we're unable to extract recipes from them. Try a recipe from Food Network, Budget Bytes, King Arthur Baking, or another site.`,
+        suggestion: getSuggestion(url),
+      },
+      { status: 422 }
+    );
+  }
+
   // --- Check for OpenAI API key ---
   if (!process.env.OPENAI_API_KEY) {
     return Response.json(
