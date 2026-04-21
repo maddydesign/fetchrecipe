@@ -16,10 +16,12 @@ export default function ExtractTool({
   placeholder = "Paste a recipe URL...",
   subtitle,
   showSourceAttribution = false,
+  printNote,
 }: {
   placeholder?: string;
   subtitle?: string;
   showSourceAttribution?: boolean;
+  printNote?: string;
 }) {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
@@ -356,6 +358,24 @@ export default function ExtractTool({
               Save recipe
             </button>
           </div>
+
+          {printNote && (
+            <p
+              className="no-print"
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: "13px",
+                fontWeight: 400,
+                color: "var(--black)",
+                letterSpacing: "0.02em",
+                textAlign: "center",
+                maxWidth: "780px",
+                margin: "-12px auto 20px",
+              }}
+            >
+              {printNote}
+            </p>
+          )}
 
           <RecipeCard recipe={recipe} />
 
