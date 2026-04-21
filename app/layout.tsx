@@ -65,25 +65,19 @@ export default function RootLayout({
               />
             </Link>
             <ul className="flex items-center gap-6">
-              {["How it works", "Blog"].map((label) => (
-                <li key={label}>
-                  <Link
-                    href={
-                      label === "Blog"
-                        ? "/blog"
-                        : `/#${label.toLowerCase().replace(/\s+/g, "-")}`
-                    }
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: 400,
-                      color: "var(--black)",
-                      textDecoration: "none",
-                    }}
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link
+                  href="/#how-it-works"
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 400,
+                    color: "var(--black)",
+                    textDecoration: "none",
+                  }}
+                >
+                  How it works
+                </Link>
+              </li>
             </ul>
           </nav>
         </header>
