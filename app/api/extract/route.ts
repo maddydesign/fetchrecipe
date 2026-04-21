@@ -515,6 +515,88 @@ async function fetchWithFallback(url: string): Promise<FetchResult> {
   }
 }
 
+// ---------- Pinterest redirect resolution ----------
+
+function isPinterestUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return (
+      hostname === "pinterest.com" ||
+      hostname.endsWith(".pinterest.com") ||
+      hostname === "pin.it"
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function resolvePinterestUrl(pinterestUrl: string): Promise<string | null> {
+  let targetUrl = pinterestUrl;
+
+  // pin.it short URLs do a plain HTTP redirect — follow it to get the full pinterest.com/pin/... URL
+  if (new URL(pinterestUrl).hostname === "pin.it") {
+    try {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 8_000);
+      const res = await fetch(pinterestUrl, {
+        method: "HEAD",
+        redirect: "follow",
+        signal: controller.signal,
+        headers: BROWSER_HEADERS,
+      });
+      if (res.url && res.url !== pinterestUrl) targetUrl = res.url;
+    } catch {
+      // Continue with original URL
+    }
+  }
+
+  // Try direct fetch — Pinterest embeds the destination URL in its page JSON
+  // as "link":"https://..." inside script data blobs.
+  try {
+    const response = await directFetch(targetUrl);
+    if (response.ok) {
+      const html = await response.text();
+      // Match "link":"https://..." where the URL is not pinterest.com itself
+      const linkMatch = html.match(
+        /"link"\s*:\s*"(https?:\/\/(?!(?:[^"]*\.)?pinterest\.)[^"]+)"/
+      );
+      if (linkMatch?.[1]) return linkMatch[1];
+    }
+  } catch {
+    // Fall through to Jina
+  }
+
+  // Jina reader handles Pinterest's bot protection and returns the destination
+  // URL in the markdown content.
+  try {
+    const response = await jinaFetch(targetUrl);
+    if (response.ok) {
+      const text = await response.text();
+      // Find the first non-Pinterest, non-jina URL in the extracted content
+      const matches = [...text.matchAll(/https?:\/\/[^\s)>"<\]]+/g)];
+      for (const match of matches) {
+        const candidate = match[0].replace(/[.,;)>"]+$/, "");
+        if (
+          candidate.includes(".") &&
+          candidate.length > 15 &&
+          !/pinterest\.|jina\.ai/.test(candidate)
+        ) {
+          try {
+            new URL(candidate);
+            return candidate;
+          } catch {
+            // Not a valid URL, skip
+          }
+        }
+      }
+    }
+  } catch {
+    // Nothing more to try
+  }
+
+  return null;
+}
+
 // ---------- POST handler ----------
 
 export async function POST(request: Request) {
@@ -566,6 +648,68 @@ export async function POST(request: Request) {
     );
   }
 
+  // --- Pinterest: follow the redirect chain to find the actual recipe URL ---
+  let wasRedirected = false;
+  let effectiveUrl = url;
+
+  if (isPinterestUrl(url)) {
+    const pathname = parsedUrl.pathname;
+    const isPinUrl =
+      pathname.includes("/pin/") || parsedUrl.hostname === "pin.it";
+
+    if (!isPinUrl) {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "This Pinterest link doesn't seem to point to a specific recipe. Try opening the pin and copying the link to the original recipe site.",
+        },
+        { status: 422 }
+      );
+    }
+
+    const destinationUrl = await resolvePinterestUrl(url);
+
+    if (!destinationUrl) {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "This Pinterest link doesn't seem to point to a specific recipe. Try opening the pin and copying the link to the original recipe site.",
+        },
+        { status: 422 }
+      );
+    }
+
+    // Validate the resolved URL
+    try {
+      new URL(destinationUrl);
+    } catch {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "This Pinterest link doesn't seem to point to a specific recipe. Try opening the pin and copying the link to the original recipe site.",
+        },
+        { status: 422 }
+      );
+    }
+
+    effectiveUrl = destinationUrl;
+    wasRedirected = true;
+  }
+
+  // Re-parse the effective URL for blocklist/hostname checks
+  let effectiveParsedUrl: URL;
+  try {
+    effectiveParsedUrl = new URL(effectiveUrl);
+  } catch {
+    return Response.json(
+      { success: false, error: "Invalid URL resolved from Pinterest pin." },
+      { status: 400 }
+    );
+  }
+
   // --- Blocklist: sites that reliably block automated access ---
   const BLOCKED_DOMAINS = new Set([
     "allrecipes.com",
@@ -578,12 +722,12 @@ export async function POST(request: Request) {
     "eatingwell.com",
   ]);
 
-  const hostname = parsedUrl.hostname.replace(/^www\./, "");
+  const hostname = effectiveParsedUrl.hostname.replace(/^www\./, "");
   if (BLOCKED_DOMAINS.has(hostname)) {
     return Response.json(
       {
         success: false,
-        error: `${parsedUrl.hostname} blocks automated access to their pages and we're unable to extract recipes from them. Try a recipe from Food Network, Budget Bytes, King Arthur Baking, or another site.`,
+        error: `${effectiveParsedUrl.hostname} blocks automated access to their pages and we're unable to extract recipes from them. Try a recipe from Food Network, Budget Bytes, King Arthur Baking, or another site.`,
         suggestion: getSuggestion(url),
       },
       { status: 422 }
@@ -599,10 +743,8 @@ export async function POST(request: Request) {
   }
 
   // --- Fetch the recipe page ---
-  // Strategy: try direct fetch first (free & fast). If the site blocks us
-  // with a 403, retry through ScraperAPI which can bypass bot protection.
   let html: string;
-  const fetchResult = await fetchWithFallback(url);
+  const fetchResult = await fetchWithFallback(effectiveUrl);
 
   if (!fetchResult.ok) {
     return Response.json(
@@ -614,9 +756,9 @@ export async function POST(request: Request) {
   html = fetchResult.html;
 
   // --- JSON-LD fast path (no AI needed for sites with structured data) ---
-  const jsonLdRecipe = extractJsonLdRecipe(html, url);
+  const jsonLdRecipe = extractJsonLdRecipe(html, effectiveUrl);
   if (jsonLdRecipe) {
-    return Response.json({ success: true, recipe: jsonLdRecipe });
+    return Response.json({ success: true, recipe: jsonLdRecipe, wasRedirected });
   }
 
   // --- Clean HTML ---
@@ -634,7 +776,7 @@ export async function POST(request: Request) {
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: `Extract the recipe from this page. The source URL is: ${url}\n\n${cleanedHtml}`,
+          content: `Extract the recipe from this page. The source URL is: ${effectiveUrl}\n\n${cleanedHtml}`,
         },
       ],
     });
@@ -649,7 +791,6 @@ export async function POST(request: Request) {
 
     const parsed = JSON.parse(content);
 
-    // Check if the AI said there's no recipe
     if (parsed.error) {
       return Response.json(
         { success: false, error: parsed.error, suggestion: getSuggestion(url) },
@@ -657,7 +798,7 @@ export async function POST(request: Request) {
       );
     }
 
-    recipe = { ...parsed, sourceUrl: url };
+    recipe = { ...parsed, sourceUrl: effectiveUrl };
   } catch (err) {
     if (err instanceof SyntaxError) {
       return Response.json(
@@ -671,5 +812,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return Response.json({ success: true, recipe });
+  return Response.json({ success: true, recipe, wasRedirected });
 }

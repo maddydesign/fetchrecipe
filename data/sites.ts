@@ -83,6 +83,13 @@ export const sites: Site[] = [
     description:
       "Once Upon a Chef features polished, family-friendly recipes from a classically trained chef, with detailed photos and tips that make each dish foolproof.",
   },
+  {
+    name: "Pinterest",
+    slug: "pinterest",
+    domain: "pinterest.com",
+    description:
+      "Pinterest saves recipes from all over the web. When you paste a Pinterest pin, we follow it to the original recipe site and extract from there — so you always get a clean result, no matter where the recipe actually lives.",
+  },
 ];
 
 export function getSiteBySlug(slug: string): Site | undefined {

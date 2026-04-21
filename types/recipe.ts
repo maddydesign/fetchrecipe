@@ -47,6 +47,7 @@ export interface SimilarRecipeSuggestion {
 export interface ExtractSuccessResponse {
   success: true;
   recipe: Recipe;
+  wasRedirected?: boolean;
 }
 
 export interface ExtractErrorResponse {

@@ -15,14 +15,17 @@ const STATUS_MESSAGES = [
 export default function ExtractTool({
   placeholder = "Paste a recipe URL...",
   subtitle,
+  showSourceAttribution = false,
 }: {
   placeholder?: string;
   subtitle?: string;
+  showSourceAttribution?: boolean;
 }) {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [wasRedirected, setWasRedirected] = useState(false);
   const [statusIdx, setStatusIdx] = useState(0);
   const statusInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -63,6 +66,7 @@ export default function ExtractTool({
 
         if (data.success) {
           setRecipe(data.recipe);
+          setWasRedirected(data.wasRedirected ?? false);
           // Scroll to result
           setTimeout(() => {
             resultRef.current?.scrollIntoView({
@@ -71,6 +75,7 @@ export default function ExtractTool({
             });
           }, 100);
         } else {
+          setWasRedirected(false);
           setError(data.error ?? "Sorry, we couldn't read the recipe on that page. Please paste another URL.");
         }
       } catch {
@@ -353,6 +358,49 @@ export default function ExtractTool({
           </div>
 
           <RecipeCard recipe={recipe} />
+
+          {/* Source attribution for redirected extractions (e.g. Pinterest pins) */}
+          {showSourceAttribution && wasRedirected && (
+            <p
+              className="no-print"
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: "13px",
+                fontWeight: 400,
+                color: "var(--black)",
+                textAlign: "center",
+                marginTop: "24px",
+              }}
+            >
+              Recipe from{" "}
+              <a
+                href={recipe.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "var(--black)",
+                  borderBottom: "0.5px solid var(--gray-border)",
+                  paddingBottom: "1px",
+                  textDecoration: "none",
+                  transition: "border-color 200ms var(--ease-out)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.borderColor = "var(--black)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.borderColor = "var(--gray-border)")
+                }
+              >
+                {(() => {
+                  try {
+                    return new URL(recipe.sourceUrl).hostname.replace(/^www\./, "");
+                  } catch {
+                    return recipe.sourceUrl;
+                  }
+                })()}
+              </a>
+            </p>
+          )}
         </div>
       )}
 
