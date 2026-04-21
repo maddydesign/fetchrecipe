@@ -21,6 +21,134 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
+// ---------- JSON-LD fast path ----------
+
+function parseIsoDuration(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!match) return null;
+  const hours = parseInt(match[1] ?? "0");
+  const mins = parseInt(match[2] ?? "0");
+  if (hours === 0 && mins === 0) return null;
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours} hr${hours > 1 ? "s" : ""}`);
+  if (mins > 0) parts.push(`${mins} min${mins > 1 ? "s" : ""}`);
+  return parts.join(" ");
+}
+
+const UNITS_PATTERN =
+  "cups?|tablespoons?|tbsps?|teaspoons?|tsps?|pounds?|lbs?|ounces?|oz|grams?|g|kilograms?|kg|milliliters?|ml|liters?|l|quarts?|pints?|gallons?|cloves?|cans?|packages?|pkg|slices?|pieces?|bunches?|heads?|stalks?|sprigs?|leaves?|leaf|pinch|dash|handful|strips?|inches?|inch";
+
+function parseIngredientString(raw: string): import("@/types/recipe").Ingredient {
+  const trimmed = raw.trim();
+  const match = trimmed.match(
+    new RegExp(
+      `^(\\d+(?:[./]\\d+)?(?:\\s*[-–]\\s*\\d+(?:[./]\\d+)?)?)\\s*(?:(${UNITS_PATTERN})\\.?\\s+)?(.+)$`,
+      "i"
+    )
+  );
+
+  if (match) {
+    const quantity = match[1].trim();
+    const unit = (match[2] ?? "").trim().toLowerCase();
+    const rest = match[3].trim();
+    const commaIdx = rest.indexOf(",");
+    const name = commaIdx !== -1 ? rest.slice(0, commaIdx).trim() : rest;
+    const notes = commaIdx !== -1 ? rest.slice(commaIdx + 1).trim() : "";
+    return { quantity, unit, name, notes };
+  }
+
+  return { quantity: "", unit: "", name: trimmed, notes: "" };
+}
+
+function extractJsonLdRecipe(html: string, sourceUrl: string): import("@/types/recipe").Recipe | null {
+  const scriptRe = /<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+
+  while ((m = scriptRe.exec(html)) !== null) {
+    let data: unknown;
+    try {
+      data = JSON.parse(m[1]);
+    } catch {
+      continue;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const candidates: any[] = Array.isArray((data as any)?.["@graph"])
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (data as any)["@graph"]
+      : [data];
+
+    for (const node of candidates) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const type = (node as any)["@type"];
+      const isRecipe = type === "Recipe" || (Array.isArray(type) && type.includes("Recipe"));
+      if (!isRecipe) continue;
+
+      const rawIngredients: string[] = Array.isArray(node.recipeIngredient)
+        ? node.recipeIngredient.map(String)
+        : [];
+      if (!node.name || rawIngredients.length === 0) continue;
+
+      // Image
+      let image: string | null = null;
+      if (typeof node.image === "string") image = node.image;
+      else if (Array.isArray(node.image) && node.image.length > 0)
+        image = typeof node.image[0] === "string" ? node.image[0] : (node.image[0]?.url ?? null);
+      else if (node.image?.url) image = node.image.url;
+
+      // Servings
+      let servings: string | null = null;
+      if (node.recipeYield) {
+        const raw = Array.isArray(node.recipeYield) ? node.recipeYield[0] : node.recipeYield;
+        const s = String(raw).trim();
+        servings = /^\d+$/.test(s) ? `${s} servings` : s;
+      }
+
+      // Instructions
+      const instructions: import("@/types/recipe").Instruction[] = [];
+      let stepNum = 1;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const addStep = (text: string) => { if (text.trim()) instructions.push({ step: stepNum++, text: text.trim(), ingredientRefs: [] }); };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const item of (Array.isArray(node.recipeInstructions) ? node.recipeInstructions : []) as any[]) {
+        if (typeof item === "string") addStep(item);
+        else if (item["@type"] === "HowToStep") addStep(item.text ?? item.name ?? "");
+        else if (item["@type"] === "HowToSection")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          for (const sub of (item.itemListElement ?? []) as any[]) {
+            if (typeof sub === "string") addStep(sub);
+            else if (sub["@type"] === "HowToStep") addStep(sub.text ?? sub.name ?? "");
+          }
+      }
+      if (instructions.length === 0) continue;
+
+      // Source site
+      let sourceSite = "";
+      if (node.publisher?.name) sourceSite = node.publisher.name;
+      else if (Array.isArray(node.author) && node.author[0]?.name) sourceSite = node.author[0].name;
+      else if (node.author?.name) sourceSite = node.author.name;
+      else { try { sourceSite = new URL(sourceUrl).hostname.replace(/^www\./, ""); } catch { /* noop */ } }
+
+      return {
+        title: node.name,
+        description: node.description ?? null,
+        image,
+        prepTime: parseIsoDuration(node.prepTime),
+        cookTime: parseIsoDuration(node.cookTime),
+        totalTime: parseIsoDuration(node.totalTime),
+        servings,
+        ingredients: rawIngredients.map(parseIngredientString),
+        instructions,
+        sourceUrl,
+        sourceSite,
+      };
+    }
+  }
+
+  return null;
+}
+
 // ---------- HTML cleaning ----------
 
 function cleanHtml(html: string): string {
@@ -445,6 +573,12 @@ export async function POST(request: Request) {
   }
 
   html = fetchResult.html;
+
+  // --- JSON-LD fast path (no AI needed for sites with structured data) ---
+  const jsonLdRecipe = extractJsonLdRecipe(html, url);
+  if (jsonLdRecipe) {
+    return Response.json({ success: true, recipe: jsonLdRecipe });
+  }
 
   // --- Clean HTML ---
   const cleanedHtml = cleanHtml(html);
